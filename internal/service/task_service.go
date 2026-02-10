@@ -599,3 +599,63 @@ func (s *TaskService) CreateTask(ctx context.Context, params CreateTaskParams) (
 
 	return task, nil
 }
+
+// CommentTask adds a comment to a task without changing status.
+func (s *TaskService) CommentTask(ctx context.Context, taskID, agentID, comment string) (*domain.TaskEvent, error) {
+	if comment == "" {
+		return nil, domain.ErrEmptyComment
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err.Error() != "tx is closed" {
+			slog.Error("failed to rollback transaction", "error", err, "task_id", taskID)
+		}
+	}()
+
+	// Get task with lock
+	task, err := s.taskRepo.GetByIDForUpdate(ctx, tx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+
+	// Get agent
+	agent, err := s.getActiveAgent(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("get agent: %w", err)
+	}
+
+	// Check permissions (workspace and visibility)
+	if task.WorkspaceID != agent.WorkspaceID {
+		return nil, domain.ErrPermissionDenied
+	}
+
+	if task.Visibility == domain.TaskVisibilityPrivate {
+		if task.CreatorID != agent.ID && (task.AssigneeID == nil || *task.AssigneeID != agent.ID) {
+			return nil, domain.ErrPermissionDenied
+		}
+	}
+
+	// Create comment event
+	event := &domain.TaskEvent{
+		TaskID:  taskID,
+		ActorID: &agentID,
+		Type:    domain.EventTypeCommented,
+		Comment: comment,
+	}
+
+	if err := s.createEventAndCommit(ctx, tx, event); err != nil {
+		return nil, err
+	}
+
+	slog.Info("comment added",
+		"task_id", taskID,
+		"agent_id", agentID,
+		"event_id", event.ID,
+	)
+
+	return event, nil
+}

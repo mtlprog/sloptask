@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -151,11 +152,21 @@ func (h *Handler) handleGetTask(w http.ResponseWriter, r *http.Request) {
 	// Calculate computed fields
 	hasUnresolvedBlockers := false
 	if len(task.BlockedBy) > 0 {
-		blockers, _ := h.taskRepo.GetBlockedByTasks(ctx, task.BlockedBy)
-		for _, blocker := range blockers {
-			if blocker.Status != domain.TaskStatusDone {
-				hasUnresolvedBlockers = true
-				break
+		blockers, err := h.taskRepo.GetBlockedByTasks(ctx, task.BlockedBy)
+		if err != nil {
+			slog.Error("failed to fetch blocked_by tasks",
+				"task_id", taskID,
+				"blocked_by", task.BlockedBy,
+				"error", err,
+			)
+			// Fail-safe: assume blockers are unresolved if we can't verify
+			hasUnresolvedBlockers = true
+		} else {
+			for _, blocker := range blockers {
+				if blocker.Status != domain.TaskStatusDone {
+					hasUnresolvedBlockers = true
+					break
+				}
 			}
 		}
 	}
@@ -434,50 +445,16 @@ func (h *Handler) handleCommentTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get task to check visibility
-	task, err := h.taskRepo.GetByID(ctx, taskID)
+	// DELEGATE TO SERVICE LAYER
+	event, err := h.taskService.CommentTask(ctx, taskID, agent.ID, req.Comment)
 	if err != nil {
+		slog.Error("failed to add comment",
+			"task_id", taskID,
+			"agent_id", agent.ID,
+			"error", err,
+		)
 		status, code, message := dto.MapDomainError(err)
 		respondError(w, status, code, message)
-		return
-	}
-
-	// Check workspace and visibility permissions
-	if task.WorkspaceID != agent.WorkspaceID {
-		respondError(w, http.StatusForbidden, "INSUFFICIENT_ACCESS", "Task not found")
-		return
-	}
-	if task.Visibility == domain.TaskVisibilityPrivate {
-		if task.CreatorID != agent.ID && (task.AssigneeID == nil || *task.AssigneeID != agent.ID) {
-			respondError(w, http.StatusForbidden, "INSUFFICIENT_ACCESS", "Task not found")
-			return
-		}
-	}
-
-	// Create comment event
-	tx, err := h.pool.Begin(ctx)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to create comment")
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	event := &domain.TaskEvent{
-		TaskID:    taskID,
-		ActorID:   &agent.ID,
-		Type:      domain.EventTypeCommented,
-		OldStatus: nil,
-		NewStatus: nil,
-		Comment:   req.Comment,
-	}
-
-	if err := h.eventRepo.Create(ctx, tx, event); err != nil {
-		respondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to create comment")
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		respondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to create comment")
 		return
 	}
 
@@ -574,6 +551,7 @@ func (h *Handler) handleListTasks(w http.ResponseWriter, r *http.Request) {
 	// Call repository
 	results, total, err := h.taskRepo.List(ctx, repository.TaskListFilters{
 		WorkspaceID:           agent.WorkspaceID,
+		AgentID:               agent.ID, // SECURITY: Required for private task filtering
 		Statuses:              statuses,
 		AssigneeID:            assigneeID,
 		Unassigned:            unassigned,

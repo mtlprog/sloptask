@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -10,9 +11,21 @@ import (
 	"github.com/mtlprog/sloptask/internal/domain"
 )
 
+// allowedSortFields defines the whitelist of fields that can be used for sorting.
+// This prevents SQL injection attacks via user-controlled column names.
+var allowedSortFields = map[string]bool{
+	"id":          true,
+	"status":      true,
+	"priority":    true,
+	"created_at":  true,
+	"updated_at":  true,
+	"title":       true,
+}
+
 // TaskListFilters holds all supported filters for task listing.
 type TaskListFilters struct {
 	WorkspaceID            string   // Required: filter by workspace
+	AgentID                string   // Required: for filtering private tasks
 	Statuses               []string // Optional: filter by status
 	AssigneeID             *string  // Optional: filter by assignee
 	Unassigned             bool     // Optional: show only unassigned
@@ -30,6 +43,53 @@ type TaskListResult struct {
 	Task                  *domain.Task
 	HasUnresolvedBlockers bool
 	IsOverdue             bool
+}
+
+// batchLoadBlockers fetches all blocker tasks in a single query.
+// Returns a map of task_id -> list of blocker tasks.
+func (r *TaskRepository) batchLoadBlockers(ctx context.Context, tasks []*domain.Task) (map[string][]*domain.Task, error) {
+	// Collect all unique blocker IDs
+	allBlockerIDs := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, task := range tasks {
+		for _, blockerID := range task.BlockedBy {
+			if !seen[blockerID] {
+				allBlockerIDs = append(allBlockerIDs, blockerID)
+				seen[blockerID] = true
+			}
+		}
+	}
+
+	if len(allBlockerIDs) == 0 {
+		return make(map[string][]*domain.Task), nil
+	}
+
+	// Single query to fetch ALL blockers at once
+	blockers, err := r.GetBlockedByTasks(ctx, allBlockerIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build map: blocker_id -> blocker task
+	blockerMap := make(map[string]*domain.Task)
+	for _, blocker := range blockers {
+		blockerMap[blocker.ID] = blocker
+	}
+
+	// Build result: task_id -> list of blocker tasks
+	result := make(map[string][]*domain.Task)
+	for _, task := range tasks {
+		taskBlockers := make([]*domain.Task, 0)
+		for _, blockerID := range task.BlockedBy {
+			if blocker, ok := blockerMap[blockerID]; ok {
+				taskBlockers = append(taskBlockers, blocker)
+			}
+		}
+		result[task.ID] = taskBlockers
+	}
+
+	return result, nil
 }
 
 // List retrieves tasks with filters and pagination.
@@ -50,9 +110,23 @@ func (r *TaskRepository) List(ctx context.Context, filters TaskListFilters) ([]T
 		qb = qb.Where(sq.Eq{"assignee_id": *filters.AssigneeID})
 	}
 
-	// Apply visibility filter
+	// Apply visibility filter with agent context
+	// SECURITY: Prevent private task leaks to unauthorized agents
 	if filters.Visibility != nil {
 		qb = qb.Where(sq.Eq{"visibility": *filters.Visibility})
+	} else {
+		// When no visibility specified, filter out private tasks
+		// that the agent is not creator or assignee of
+		qb = qb.Where(sq.Or{
+			sq.Eq{"visibility": "public"},
+			sq.And{
+				sq.Eq{"visibility": "private"},
+				sq.Or{
+					sq.Eq{"creator_id": filters.AgentID},
+					sq.Eq{"assignee_id": filters.AgentID},
+				},
+			},
+		})
 	}
 
 	// Apply priority filter
@@ -71,20 +145,31 @@ func (r *TaskRepository) List(ctx context.Context, filters TaskListFilters) ([]T
 		qb = qb.OrderBy("created_at ASC")
 	} else {
 		for _, sort := range filters.Sort {
+			descending := false
+			field := sort
+
 			if strings.HasPrefix(sort, "-") {
-				field := sort[1:]
-				// Special handling for priority DESC
-				if field == "priority" {
+				descending = true
+				field = sort[1:]
+			}
+
+			// SECURITY: Validate field against allowlist to prevent SQL injection
+			if !allowedSortFields[field] {
+				continue // Skip invalid fields silently
+			}
+
+			if field == "priority" {
+				// Special CASE handling for priority sorting
+				if descending {
 					qb = qb.OrderBy("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 WHEN 'low' THEN 4 END DESC")
 				} else {
-					qb = qb.OrderBy(field + " DESC")
+					qb = qb.OrderBy("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 WHEN 'low' THEN 4 END ASC")
 				}
 			} else {
-				// Special handling for priority ASC
-				if sort == "priority" {
-					qb = qb.OrderBy("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 WHEN 'low' THEN 4 END ASC")
+				if descending {
+					qb = qb.OrderBy(field + " DESC")
 				} else {
-					qb = qb.OrderBy(sort + " ASC")
+					qb = qb.OrderBy(field + " ASC")
 				}
 			}
 		}
@@ -122,8 +207,20 @@ func (r *TaskRepository) List(ctx context.Context, filters TaskListFilters) ([]T
 	} else if filters.AssigneeID != nil {
 		countQb = countQb.Where(sq.Eq{"assignee_id": *filters.AssigneeID})
 	}
+	// Apply visibility filter with agent context (same as main query)
 	if filters.Visibility != nil {
 		countQb = countQb.Where(sq.Eq{"visibility": *filters.Visibility})
+	} else {
+		countQb = countQb.Where(sq.Or{
+			sq.Eq{"visibility": "public"},
+			sq.And{
+				sq.Eq{"visibility": "private"},
+				sq.Or{
+					sq.Eq{"creator_id": filters.AgentID},
+					sq.Eq{"assignee_id": filters.AgentID},
+				},
+			},
+		})
 	}
 	if len(filters.Priorities) > 0 {
 		countQb = countQb.Where(sq.Eq{"priority": filters.Priorities})
@@ -142,6 +239,14 @@ func (r *TaskRepository) List(ctx context.Context, filters TaskListFilters) ([]T
 		return nil, 0, fmt.Errorf("count tasks: %w", err)
 	}
 
+	// Batch load all blockers at once (fixes N+1 query problem)
+	blockersByTask, err := r.batchLoadBlockers(ctx, tasks)
+	if err != nil {
+		slog.Error("failed to batch load blockers", "error", err)
+		// Continue with empty blocker map (fail-safe)
+		blockersByTask = make(map[string][]*domain.Task)
+	}
+
 	// Compute derived fields for each task
 	results := make([]TaskListResult, len(tasks))
 	for i, task := range tasks {
@@ -151,15 +256,12 @@ func (r *TaskRepository) List(ctx context.Context, filters TaskListFilters) ([]T
 			IsOverdue:             task.StatusDeadlineAt != nil && task.StatusDeadlineAt.Before(time.Now()),
 		}
 
-		// Check unresolved blockers
-		if len(task.BlockedBy) > 0 {
-			blockers, err := r.GetBlockedByTasks(ctx, task.BlockedBy)
-			if err == nil {
-				for _, blocker := range blockers {
-					if blocker.Status != domain.TaskStatusDone {
-						results[i].HasUnresolvedBlockers = true
-						break
-					}
+		// Check blockers from batch-loaded map
+		if blockers, ok := blockersByTask[task.ID]; ok {
+			for _, blocker := range blockers {
+				if blocker.Status != domain.TaskStatusDone {
+					results[i].HasUnresolvedBlockers = true
+					break
 				}
 			}
 		}
