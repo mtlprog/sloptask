@@ -1,6 +1,6 @@
 module github.com/mtlprog/sloptask
 
-go 1.25.6
+go 1.24.0
 
 require (
 	github.com/jackc/pgx/v5 v5.8.0
