@@ -14,28 +14,28 @@ import (
 // allowedSortFields defines the whitelist of fields that can be used for sorting.
 // This prevents SQL injection attacks via user-controlled column names.
 var allowedSortFields = map[string]bool{
-	"id":          true,
-	"status":      true,
-	"priority":    true,
-	"created_at":  true,
-	"updated_at":  true,
-	"title":       true,
+	"id":         true,
+	"status":     true,
+	"priority":   true,
+	"created_at": true,
+	"updated_at": true,
+	"title":      true,
 }
 
 // TaskListFilters holds all supported filters for task listing.
 type TaskListFilters struct {
-	WorkspaceID            string   // Required: filter by workspace
-	AgentID                string   // Required: for filtering private tasks
-	Statuses               []string // Optional: filter by status
-	AssigneeID             *string  // Optional: filter by assignee
-	Unassigned             bool     // Optional: show only unassigned
-	Visibility             *string  // Optional: filter by visibility
-	Priorities             []string // Optional: filter by priority
-	Overdue                bool     // Optional: show only overdue
-	HasUnresolvedBlockers  bool     // Optional: show only with unresolved blockers
-	Sort                   []string // Optional: sort fields (with - prefix for DESC)
-	Limit                  int      // Required: page size
-	Offset                 int      // Required: page offset
+	WorkspaceID           string   // Required: filter by workspace
+	AgentID               string   // Required: for filtering private tasks
+	Statuses              []string // Optional: filter by status
+	AssigneeID            *string  // Optional: filter by assignee
+	Unassigned            bool     // Optional: show only unassigned
+	Visibility            *string  // Optional: filter by visibility
+	Priorities            []string // Optional: filter by priority
+	Overdue               bool     // Optional: show only overdue
+	HasUnresolvedBlockers bool     // Optional: show only with unresolved blockers
+	Sort                  []string // Optional: sort fields (with - prefix for DESC)
+	Limit                 int      // Required: page size
+	Offset                int      // Required: page offset
 }
 
 // TaskListResult holds a task with computed fields.
