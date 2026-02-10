@@ -122,6 +122,33 @@ Environment variables (all optional except DATABASE_URL):
 - No ORM - direct SQL queries via pgx
 - Use parameterized queries: `$1, $2` placeholders
 
+### Repository Layer
+
+- Use `squirrel` for SQL query building - required to avoid duplication
+- Pattern: `r.psql.Select().From().Where().ToSql()` then execute with pgx
+
+### Service Layer Architecture
+
+- Three layers: `domain/` (types, errors) → `repository/` (SQL) → `service/` (business logic)
+- Optimistic locking: `UPDATE ... WHERE id = $1 AND status = $2` (check old status)
+- One transaction per operation: begin → read → validate → update → create event → commit
+
+### State Machine
+
+- Manual implementation preferred over libraries (more control, better integration)
+- Cycle detection runs on IN_PROGRESS transitions (not at dependency creation time)
+- Domain-specific errors in `domain/errors.go` - use `errors.Is()` for checking
+
+## Testing
+
+Integration tests use testify suite with real PostgreSQL:
+```bash
+docker-compose up -d db        # Start database first
+go test ./internal/service -v  # Run service layer tests
+```
+
+Test pattern: `testify/suite` with `SetupTest`/`TearDown` for clean fixtures between tests
+
 ## Tech Stack
 
 - **Go 1.25+** - Backend language
@@ -141,10 +168,11 @@ Environment variables (all optional except DATABASE_URL):
 - ✅ CLI with serve and check-deadlines commands
 - ✅ Health check endpoint
 - ✅ Graceful shutdown
+- ✅ Task state machine (domain, repository, service layers)
+- ✅ Authentication middleware (Bearer token)
+- ✅ Deadline checker (ProcessExpiredDeadlines)
+- ✅ Integration tests with testify suite (59.5% coverage)
 
 **Not Yet Implemented:**
 - ⏳ REST API endpoints (see docs/04-API.md)
-- ⏳ Authentication middleware
-- ⏳ Task state machine logic
-- ⏳ Deadline checker background process
 - ⏳ Statistics endpoints
