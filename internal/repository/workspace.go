@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -14,26 +15,22 @@ import (
 // WorkspaceRepository handles database operations for workspaces.
 type WorkspaceRepository struct {
 	pool *pgxpool.Pool
-	psql sq.StatementBuilderType
 }
 
 // NewWorkspaceRepository creates a new WorkspaceRepository.
 func NewWorkspaceRepository(pool *pgxpool.Pool) *WorkspaceRepository {
-	return &WorkspaceRepository{
-		pool: pool,
-		psql: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
-	}
+	return &WorkspaceRepository{pool: pool}
 }
 
 // GetByID retrieves a workspace by ID.
 func (r *WorkspaceRepository) GetByID(ctx context.Context, workspaceID string) (*domain.Workspace, error) {
-	query, args, err := r.psql.
+	query, args, err := psql.
 		Select("id", "name", "slug", "status_deadlines", "created_at").
 		From("workspaces").
 		Where(sq.Eq{"id": workspaceID}).
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
+		return nil, fmt.Errorf("build GetByID query for workspace %s: %w", workspaceID, err)
 	}
 
 	var workspace domain.Workspace
@@ -47,13 +44,12 @@ func (r *WorkspaceRepository) GetByID(ctx context.Context, workspaceID string) (
 		&workspace.CreatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrWorkspaceNotFound
 		}
 		return nil, fmt.Errorf("query workspace: %w", err)
 	}
 
-	// Parse JSONB status_deadlines
 	if err := json.Unmarshal(statusDeadlinesJSON, &workspace.StatusDeadlines); err != nil {
 		return nil, fmt.Errorf("parse status_deadlines: %w", err)
 	}
