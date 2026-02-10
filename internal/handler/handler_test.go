@@ -187,7 +187,7 @@ func (s *HandlerTestSuite) TestListTasks_PrivateTaskFiltered() {
 // Test 4: Validation error returns 422
 func (s *HandlerTestSuite) TestCreateTask_ValidationError() {
 	reqBody := dto.CreateTaskRequest{
-		Title:       "Bad",  // Too short (< 5 chars)
+		Title:       "Bad", // Too short (< 5 chars)
 		Description: "Test",
 	}
 
