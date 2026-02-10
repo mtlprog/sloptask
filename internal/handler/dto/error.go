@@ -2,6 +2,8 @@ package dto
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/mtlprog/sloptask/internal/domain"
@@ -77,6 +79,11 @@ func MapDomainError(err error) (status int, code string, message string) {
 
 	// Default: internal server error
 	default:
+		// CRITICAL: Log unmapped error for debugging
+		slog.Error("unmapped domain error returned to client",
+			"error", err,
+			"error_type", fmt.Sprintf("%T", err),
+		)
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error"
 	}
 }
