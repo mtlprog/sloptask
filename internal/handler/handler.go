@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 
-	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/mtlprog/sloptask/docs" // Import generated docs
 	"github.com/mtlprog/sloptask/internal/handler/dto"
 	"github.com/mtlprog/sloptask/internal/middleware"
 	"github.com/mtlprog/sloptask/internal/repository"
 	"github.com/mtlprog/sloptask/internal/service"
-	_ "github.com/mtlprog/sloptask/docs" // Import generated docs
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // Handler holds dependencies for HTTP handlers.

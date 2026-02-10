@@ -92,12 +92,12 @@ func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request) {
 			TasksStuckCount: stat.TasksStuckCount,
 			TasksInProgress: stat.TasksInProgress,
 			// Other fields defaulted to 0 (not implemented in MVP)
-			AvgLeadTimeMinutes:       0,
-			AvgCycleTimeMinutes:      0,
-			TasksTakenOverFromAgent:  0,
-			TasksTakenOverByAgent:    0,
-			EscalationsInitiated:     0,
-			EscalationsReceived:      0,
+			AvgLeadTimeMinutes:      0,
+			AvgCycleTimeMinutes:     0,
+			TasksTakenOverFromAgent: 0,
+			TasksTakenOverByAgent:   0,
+			EscalationsInitiated:    0,
+			EscalationsReceived:     0,
 		}
 	}
 
