@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,6 +28,7 @@ func (h *Handler) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := h.pool.Ping(ctx); err != nil {
+		slog.Error("database health check failed", "error", err)
 		http.Error(w, "database unavailable", http.StatusServiceUnavailable)
 		return
 	}

@@ -13,15 +13,11 @@ import (
 // TaskEventRepository handles database operations for task events.
 type TaskEventRepository struct {
 	pool *pgxpool.Pool
-	psql sq.StatementBuilderType
 }
 
 // NewTaskEventRepository creates a new TaskEventRepository.
 func NewTaskEventRepository(pool *pgxpool.Pool) *TaskEventRepository {
-	return &TaskEventRepository{
-		pool: pool,
-		psql: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
-	}
+	return &TaskEventRepository{pool: pool}
 }
 
 // Create creates a new task event.
@@ -30,14 +26,14 @@ func (r *TaskEventRepository) Create(
 	tx pgx.Tx,
 	event *domain.TaskEvent,
 ) error {
-	query, args, err := r.psql.
+	query, args, err := psql.
 		Insert("task_events").
 		Columns("task_id", "actor_id", "type", "old_status", "new_status", "comment").
 		Values(event.TaskID, event.ActorID, event.Type, event.OldStatus, event.NewStatus, event.Comment).
 		Suffix("RETURNING id, created_at").
 		ToSql()
 	if err != nil {
-		return fmt.Errorf("build query: %w", err)
+		return fmt.Errorf("build Create query for task event: %w", err)
 	}
 
 	err = tx.QueryRow(ctx, query, args...).Scan(&event.ID, &event.CreatedAt)
@@ -50,14 +46,14 @@ func (r *TaskEventRepository) Create(
 
 // GetByTaskID retrieves all events for a task.
 func (r *TaskEventRepository) GetByTaskID(ctx context.Context, taskID string) ([]*domain.TaskEvent, error) {
-	query, args, err := r.psql.
+	query, args, err := psql.
 		Select("id", "task_id", "actor_id", "type", "old_status", "new_status", "comment", "created_at").
 		From("task_events").
 		Where(sq.Eq{"task_id": taskID}).
 		OrderBy("created_at ASC").
 		ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
+		return nil, fmt.Errorf("build GetByTaskID query for task %s: %w", taskID, err)
 	}
 
 	rows, err := r.pool.Query(ctx, query, args...)
