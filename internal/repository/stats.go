@@ -18,12 +18,12 @@ type StatsFilters struct {
 
 // AgentStatsResult holds statistics for a single agent.
 type AgentStatsResult struct {
-	AgentID          string
-	AgentName        string
-	TasksCompleted   int
-	TasksCancelled   int
-	TasksStuckCount  int
-	TasksInProgress  int
+	AgentID         string
+	AgentName       string
+	TasksCompleted  int
+	TasksCancelled  int
+	TasksStuckCount int
+	TasksInProgress int
 }
 
 // WorkspaceStatsResult holds overall workspace statistics.

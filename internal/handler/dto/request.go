@@ -38,16 +38,16 @@ type CommentTaskRequest struct {
 
 // ListTasksFilters represents query parameters for GET /tasks.
 type ListTasksFilters struct {
-	Status                 []string // Multiple statuses: ?status=NEW,STUCK
-	AssigneeID             *string  // ?assignee=<uuid> or ?assignee=me
-	Unassigned             bool     // ?unassigned=true
-	Visibility             *string  // ?visibility=public
-	Priority               []string // ?priority=high,critical
-	Overdue                bool     // ?overdue=true
-	HasUnresolvedBlockers  bool     // ?has_unresolved_blockers=true
-	Sort                   []string // ?sort=-priority,created_at
-	Limit                  int      // ?limit=50
-	Offset                 int      // ?offset=0
+	Status                []string // Multiple statuses: ?status=NEW,STUCK
+	AssigneeID            *string  // ?assignee=<uuid> or ?assignee=me
+	Unassigned            bool     // ?unassigned=true
+	Visibility            *string  // ?visibility=public
+	Priority              []string // ?priority=high,critical
+	Overdue               bool     // ?overdue=true
+	HasUnresolvedBlockers bool     // ?has_unresolved_blockers=true
+	Sort                  []string // ?sort=-priority,created_at
+	Limit                 int      // ?limit=50
+	Offset                int      // ?offset=0
 }
 
 // StatsFilters represents query parameters for GET /stats.
