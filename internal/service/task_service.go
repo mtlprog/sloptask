@@ -526,12 +526,8 @@ func (s *TaskService) CreateTask(ctx context.Context, params CreateTaskParams) (
 		}
 	}
 
-	// Check cyclic dependencies if blockedBy is provided
-	if len(params.BlockedBy) > 0 {
-		if err := s.validator.CheckCyclicDependency(ctx, "", make(map[string]bool), make(map[string]bool)); err != nil {
-			return nil, err
-		}
-	}
+	// Note: Cyclic dependency check is performed when task transitions to IN_PROGRESS,
+	// not at creation time. This allows flexible dependency management.
 
 	// Determine initial status: IN_PROGRESS if assignee provided, otherwise NEW
 	initialStatus := domain.TaskStatusNew
