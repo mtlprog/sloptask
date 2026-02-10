@@ -526,6 +526,36 @@ func (s *TaskService) CreateTask(ctx context.Context, params CreateTaskParams) (
 		}
 	}
 
+	// Validate all blocker tasks exist and are in the same workspace
+	if len(params.BlockedBy) > 0 {
+		blockers, err := s.taskRepo.GetBlockedByTasks(ctx, params.BlockedBy)
+		if err != nil {
+			return nil, fmt.Errorf("validate blockers: %w", err)
+		}
+
+		// Check that all blocker IDs were found
+		if len(blockers) != len(params.BlockedBy) {
+			foundIDs := make(map[string]bool)
+			for _, b := range blockers {
+				foundIDs[b.ID] = true
+			}
+			var missingIDs []string
+			for _, id := range params.BlockedBy {
+				if !foundIDs[id] {
+					missingIDs = append(missingIDs, id)
+				}
+			}
+			return nil, fmt.Errorf("%w: blocker tasks not found: %v", domain.ErrTaskNotFound, missingIDs)
+		}
+
+		// Check that all blockers are in the same workspace
+		for _, blocker := range blockers {
+			if blocker.WorkspaceID != creator.WorkspaceID {
+				return nil, fmt.Errorf("%w: blocker task %s is not in the same workspace", domain.ErrPermissionDenied, blocker.ID)
+			}
+		}
+	}
+
 	// Note: Cyclic dependency check is performed when task transitions to IN_PROGRESS,
 	// not at creation time. This allows flexible dependency management.
 

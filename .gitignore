@@ -28,3 +28,6 @@ go.work.sum
 # OS
 .DS_Store
 Thumbs.db
+
+coverage.html
+sloptask

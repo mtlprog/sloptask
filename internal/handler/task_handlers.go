@@ -115,10 +115,9 @@ func (h *Handler) handleGetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract task ID
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	// Extract and validate task ID
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 
@@ -226,9 +225,8 @@ func (h *Handler) handleTransitionStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 
@@ -284,9 +282,8 @@ func (h *Handler) handleClaimTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 
@@ -332,9 +329,8 @@ func (h *Handler) handleEscalateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 
@@ -380,9 +376,8 @@ func (h *Handler) handleTakeoverTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 
@@ -428,9 +423,8 @@ func (h *Handler) handleCommentTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := r.PathValue("id")
-	if taskID == "" {
-		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+	taskID, ok := extractTaskID(w, r)
+	if !ok {
 		return
 	}
 

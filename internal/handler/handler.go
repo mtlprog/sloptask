@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/mtlprog/sloptask/docs" // Import generated docs
 	"github.com/mtlprog/sloptask/internal/handler/dto"
@@ -101,4 +102,21 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 // respondError writes a standard error response.
 func respondError(w http.ResponseWriter, status int, code, message string) {
 	respondJSON(w, status, dto.NewErrorResponse(code, message))
+}
+
+// extractTaskID extracts and validates task ID from path parameter.
+// Returns (taskID, true) if valid, ("", false) if invalid (error already sent to client).
+func extractTaskID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	taskID := r.PathValue("id")
+	if taskID == "" {
+		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task id is required")
+		return "", false
+	}
+
+	if _, err := uuid.Parse(taskID); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_REQUEST", "task_id must be a valid UUID")
+		return "", false
+	}
+
+	return taskID, true
 }
