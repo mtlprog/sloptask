@@ -19,6 +19,8 @@ import (
 	"github.com/mtlprog/sloptask/internal/database"
 	"github.com/mtlprog/sloptask/internal/handler"
 	"github.com/mtlprog/sloptask/internal/logger"
+	"github.com/mtlprog/sloptask/internal/repository"
+	"github.com/mtlprog/sloptask/internal/service"
 	"github.com/urfave/cli/v2"
 )
 
@@ -153,8 +155,28 @@ func runCheckDeadlines(c *cli.Context) error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	slog.Info("deadline checker stub - not implemented yet")
-	slog.Info("this command will check and update expired task deadlines in future iterations")
+	// Create repositories
+	taskRepo := repository.NewTaskRepository(db.Pool())
+	eventRepo := repository.NewTaskEventRepository(db.Pool())
+	agentRepo := repository.NewAgentRepository(db.Pool())
+	workspaceRepo := repository.NewWorkspaceRepository(db.Pool())
 
+	// Create service
+	taskService := service.NewTaskService(
+		db.Pool(),
+		taskRepo,
+		eventRepo,
+		agentRepo,
+		workspaceRepo,
+	)
+
+	// Process expired deadlines
+	slog.Info("checking for expired task deadlines")
+	count, err := taskService.ProcessExpiredDeadlines(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to process expired deadlines: %w", err)
+	}
+
+	slog.Info("deadline checker completed", "tasks_updated", count)
 	return nil
 }
