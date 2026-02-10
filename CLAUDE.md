@@ -31,6 +31,7 @@ make deps               # Download and tidy dependencies
 # Docker
 docker-compose up -d db                 # Start PostgreSQL only
 docker-compose up                       # Start all services
+docker-compose up -d --build            # Rebuild images and start services
 ```
 
 ## Architecture
@@ -115,6 +116,10 @@ Environment variables (all optional except DATABASE_URL):
 3. Handler has access to `h.pool` (pgxpool.Pool)
 4. Use pattern matching routes: `mux.HandleFunc("GET /api/v1/tasks", h.handleGetTasks)`
 
+**Handler Patterns:**
+- Use `extractTaskID(w, r)` helper for path parameters - validates UUID and returns (id, ok)
+- Example: `taskID, ok := extractTaskID(w, r); if !ok { return }`
+
 ### Working with Database
 
 - Use `h.pool.Query()` or `h.pool.QueryRow()` for queries
@@ -133,11 +138,22 @@ Environment variables (all optional except DATABASE_URL):
 - Optimistic locking: `UPDATE ... WHERE id = $1 AND status = $2` (check old status)
 - One transaction per operation: begin → read → validate → update → create event → commit
 
+**Blocker Validation:**
+- Always validate blocker existence in CreateTask - prevents phantom blockers
+- Check blockers are in same workspace
+- Pattern: `GetBlockedByTasks()` → verify count matches → check workspace
+
 ### State Machine
 
 - Manual implementation preferred over libraries (more control, better integration)
 - Cycle detection runs on IN_PROGRESS transitions (not at dependency creation time)
 - Domain-specific errors in `domain/errors.go` - use `errors.Is()` for checking
+
+### Dependency Management
+
+- After `go get <package>`, always run `go mod tidy`
+- CI checks both `gofmt -s` AND `go mod tidy` - both must pass
+- Commit both go.mod and go.sum together
 
 ## Testing
 
@@ -149,6 +165,16 @@ go test ./internal/service -v  # Run service layer tests
 
 Test pattern: `testify/suite` with `SetupTest`/`TearDown` for clean fixtures between tests
 
+**Manual Testing:**
+```bash
+docker-compose up -d --build           # Start services with rebuild
+curl http://localhost:8080/healthz     # Check health
+curl -d @- <<'EOF' http://localhost:8080/api/v1/tasks  # Use heredoc for JSON
+{"title":"Test","description":"Test"}
+EOF
+docker-compose down                    # Cleanup
+```
+
 ## Tech Stack
 
 - **Go 1.25+** - Backend language
@@ -158,6 +184,9 @@ Test pattern: `testify/suite` with `SetupTest`/`TearDown` for clean fixtures bet
 - **urfave/cli/v2** - CLI framework
 - **slog** - Structured logging (standard library)
 - **net/http** - HTTP server (standard library, no framework)
+- **swaggo/swag** - Swagger documentation generation
+- **google/uuid** - UUID parsing and validation
+- **testify/suite** - Integration testing framework
 
 ## Current Status
 
@@ -171,8 +200,10 @@ Test pattern: `testify/suite` with `SetupTest`/`TearDown` for clean fixtures bet
 - ✅ Task state machine (domain, repository, service layers)
 - ✅ Authentication middleware (Bearer token)
 - ✅ Deadline checker (ProcessExpiredDeadlines)
-- ✅ Integration tests with testify suite (59.5% coverage)
+- ✅ REST API endpoints (11 endpoints: create, get, list, claim, escalate, takeover, comment, status)
+- ✅ Statistics endpoints (workspace and agent stats)
+- ✅ Integration tests with testify suite (21 tests: 9 handler + 12 service)
+- ✅ Swagger documentation (auto-generated)
 
 **Not Yet Implemented:**
-- ⏳ REST API endpoints (see docs/04-API.md)
-- ⏳ Statistics endpoints
+- ⏳ Advanced features (filters, pagination, search)
