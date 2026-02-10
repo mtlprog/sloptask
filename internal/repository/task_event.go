@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
@@ -79,6 +80,64 @@ func (r *TaskEventRepository) GetByTaskID(ctx context.Context, taskID string) ([
 			return nil, fmt.Errorf("scan task event: %w", err)
 		}
 		events = append(events, &event)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate rows: %w", err)
+	}
+
+	return events, nil
+}
+
+// TaskEventWithActor extends TaskEvent with actor name.
+type TaskEventWithActor struct {
+	ID        string
+	TaskID    string
+	ActorID   *string
+	ActorName *string // NULL for system events
+	Type      domain.EventType
+	OldStatus *domain.TaskStatus
+	NewStatus *domain.TaskStatus
+	Comment   string
+	CreatedAt time.Time
+}
+
+// GetByTaskIDWithActors retrieves all events for a task with actor names.
+func (r *TaskEventRepository) GetByTaskIDWithActors(ctx context.Context, taskID string) ([]TaskEventWithActor, error) {
+	query := `
+		SELECT
+			te.id, te.task_id, te.actor_id, a.name as actor_name,
+			te.type, te.old_status, te.new_status, te.comment, te.created_at
+		FROM task_events te
+		LEFT JOIN agents a ON te.actor_id = a.id
+		WHERE te.task_id = $1
+		ORDER BY te.created_at ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("query task events with actors: %w", err)
+	}
+	defer rows.Close()
+
+	var events []TaskEventWithActor
+	for rows.Next() {
+		var event TaskEventWithActor
+		err := rows.Scan(
+			&event.ID,
+			&event.TaskID,
+			&event.ActorID,
+			&event.ActorName,
+			&event.Type,
+			&event.OldStatus,
+			&event.NewStatus,
+			&event.Comment,
+			&event.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan task event with actor: %w", err)
+		}
+		events = append(events, event)
 	}
 
 	if err := rows.Err(); err != nil {

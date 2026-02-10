@@ -481,3 +481,121 @@ func (s *TaskService) processExpiredTask(ctx context.Context, task *domain.Task)
 
 	return nil
 }
+
+// CreateTaskParams holds parameters for creating a new task.
+type CreateTaskParams struct {
+	WorkspaceID string
+	CreatorID   string
+	Title       string
+	Description string
+	AssigneeID  *string
+	Visibility  domain.TaskVisibility
+	Priority    domain.TaskPriority
+	BlockedBy   []string
+}
+
+// CreateTask creates a new task with the given parameters.
+// If AssigneeID is provided, the task is created in IN_PROGRESS status automatically.
+// Otherwise, it's created in NEW status.
+func (s *TaskService) CreateTask(ctx context.Context, params CreateTaskParams) (*domain.Task, error) {
+	// Validate required fields
+	if params.Title == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if len(params.Title) < 5 || len(params.Title) > 200 {
+		return nil, fmt.Errorf("title must be between 5 and 200 characters")
+	}
+	if params.Description == "" {
+		return nil, fmt.Errorf("description is required")
+	}
+
+	// Validate creator exists and is active
+	creator, err := s.getActiveAgent(ctx, params.CreatorID)
+	if err != nil {
+		return nil, fmt.Errorf("validate creator: %w", err)
+	}
+
+	// If assignee is provided, validate they exist, are active, and in same workspace
+	if params.AssigneeID != nil {
+		assignee, err := s.getActiveAgent(ctx, *params.AssigneeID)
+		if err != nil {
+			return nil, fmt.Errorf("validate assignee: %w", err)
+		}
+		if assignee.WorkspaceID != creator.WorkspaceID {
+			return nil, fmt.Errorf("%w: assignee must be in same workspace", domain.ErrPermissionDenied)
+		}
+	}
+
+	// Check cyclic dependencies if blockedBy is provided
+	if len(params.BlockedBy) > 0 {
+		if err := s.validator.CheckCyclicDependency(ctx, "", make(map[string]bool), make(map[string]bool)); err != nil {
+			return nil, err
+		}
+	}
+
+	// Determine initial status: IN_PROGRESS if assignee provided, otherwise NEW
+	initialStatus := domain.TaskStatusNew
+	if params.AssigneeID != nil {
+		initialStatus = domain.TaskStatusInProgress
+	}
+
+	// Get workspace for deadline calculation
+	workspace, err := s.workspaceRepo.GetByID(ctx, params.WorkspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("get workspace: %w", err)
+	}
+
+	// Calculate deadline
+	deadline := CalculateDeadline(workspace, initialStatus)
+
+	// Begin transaction
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err.Error() != "tx is closed" {
+			slog.Error("failed to rollback transaction", "error", err)
+		}
+	}()
+
+	// Create task in repository
+	task, err := s.taskRepo.Create(ctx, tx, &domain.Task{
+		WorkspaceID:      params.WorkspaceID,
+		Title:            params.Title,
+		Description:      params.Description,
+		CreatorID:        params.CreatorID,
+		AssigneeID:       params.AssigneeID,
+		Status:           initialStatus,
+		Visibility:       params.Visibility,
+		Priority:         params.Priority,
+		BlockedBy:        params.BlockedBy,
+		StatusDeadlineAt: deadline,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create task: %w", err)
+	}
+
+	// Create "created" event
+	event := &domain.TaskEvent{
+		TaskID:    task.ID,
+		ActorID:   &params.CreatorID,
+		Type:      domain.EventTypeCreated,
+		OldStatus: nil,
+		NewStatus: &initialStatus,
+		Comment:   "Task created",
+	}
+
+	if err := s.createEventAndCommit(ctx, tx, event); err != nil {
+		return nil, err
+	}
+
+	slog.Info("task created",
+		"task_id", task.ID,
+		"creator_id", params.CreatorID,
+		"status", initialStatus,
+		"assignee_id", params.AssigneeID,
+	)
+
+	return task, nil
+}

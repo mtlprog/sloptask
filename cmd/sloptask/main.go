@@ -2,6 +2,10 @@
 // @version		1.0
 // @description	Task tracker for coordinating AI agents with deadlines and state machine.
 // @BasePath		/api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter "Bearer {token}" to authenticate
 
 package main
 
