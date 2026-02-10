@@ -1,0 +1,867 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Task tracker for coordinating AI agents with deadlines and state machine.",
+        "title": "SlopTask API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api/v1",
+    "paths": {
+        "/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get workspace and agent statistics for a given period",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Get statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Period: day, week (default), month, all",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by specific agent UUID",
+                        "name": "agent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.StatsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of tasks with optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "List tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated statuses: NEW,STUCK",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by assignee: 'me' or agent UUID",
+                        "name": "assignee",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Show only unassigned tasks",
+                        "name": "unassigned",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by visibility: public or private",
+                        "name": "visibility",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated priorities: high,critical",
+                        "name": "priority",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Show only overdue tasks",
+                        "name": "overdue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Show only tasks with unresolved blockers",
+                        "name": "has_unresolved_blockers",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort fields: -priority,created_at",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (1-200, default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TasksListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new task. If assignee_id is provided, task automatically transitions to IN_PROGRESS.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Create a new task",
+                "parameters": [
+                    {
+                        "description": "Task creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskDetail"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get full task details including description and event history",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Get task details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/claim": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agent claims an unassigned NEW task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Claim a task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Claim request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ClaimTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskEventResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/comments": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add a comment without changing task status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Add comment to task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CommentTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskEventResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/escalate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agent escalates another agent's IN_PROGRESS task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Escalate a task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Escalate request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.EscalateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskEventResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Change task status with comment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Transition task status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status transition request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TransitionStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskEventResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/takeover": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agent takes over an abandoned STUCK task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Takeover a STUCK task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Takeover request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TakeoverTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TaskEventResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.AgentStats": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "avg_cycle_time_minutes": {
+                    "type": "number"
+                },
+                "avg_lead_time_minutes": {
+                    "type": "number"
+                },
+                "escalations_initiated": {
+                    "type": "integer"
+                },
+                "escalations_received": {
+                    "type": "integer"
+                },
+                "tasks_cancelled": {
+                    "type": "integer"
+                },
+                "tasks_completed": {
+                    "type": "integer"
+                },
+                "tasks_in_progress": {
+                    "type": "integer"
+                },
+                "tasks_stuck_count": {
+                    "type": "integer"
+                },
+                "tasks_taken_over_by_agent": {
+                    "type": "integer"
+                },
+                "tasks_taken_over_from_agent": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.ClaimTaskRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CommentTaskRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
+                "blocked_by": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/dto.ErrorDetail"
+                }
+            }
+        },
+        "dto.EscalateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StatsResponse": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AgentStats"
+                    }
+                },
+                "period": {
+                    "type": "string"
+                },
+                "period_end": {
+                    "type": "string"
+                },
+                "period_start": {
+                    "type": "string"
+                },
+                "workspace": {
+                    "$ref": "#/definitions/dto.WorkspaceStats"
+                }
+            }
+        },
+        "dto.TakeoverTaskRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TaskDetail": {
+            "type": "object",
+            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
+                "blocked_by": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "creator_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "has_unresolved_blockers": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_overdue": {
+                    "type": "boolean"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "status_deadline_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TaskDetailResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TaskEventInfo"
+                    }
+                },
+                "task": {
+                    "$ref": "#/definitions/dto.TaskDetail"
+                }
+            }
+        },
+        "dto.TaskEventInfo": {
+            "type": "object",
+            "properties": {
+                "actor_id": {
+                    "type": "string"
+                },
+                "actor_name": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "new_status": {
+                    "type": "string"
+                },
+                "old_status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TaskEventResponse": {
+            "type": "object",
+            "properties": {
+                "actor_id": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "new_status": {
+                    "type": "string"
+                },
+                "old_status": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TaskListResponse": {
+            "type": "object",
+            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
+                "blocked_by": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "creator_id": {
+                    "type": "string"
+                },
+                "has_unresolved_blockers": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_overdue": {
+                    "type": "boolean"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "status_deadline_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TasksListResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TaskListResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.TransitionStatusRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.WorkspaceStats": {
+            "type": "object",
+            "properties": {
+                "avg_cycle_time_minutes": {
+                    "type": "number"
+                },
+                "avg_lead_time_minutes": {
+                    "type": "number"
+                },
+                "completion_rate_percent": {
+                    "type": "number"
+                },
+                "overdue_count": {
+                    "type": "integer"
+                },
+                "stuck_count": {
+                    "type": "integer"
+                },
+                "tasks_by_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_tasks_created": {
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Enter \"Bearer {token}\" to authenticate",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

@@ -187,3 +187,49 @@ func (r *TaskRepository) FindExpiredDeadlines(ctx context.Context) ([]*domain.Ta
 
 	return scanTasks(rows)
 }
+
+// Create creates a new task in the database within a transaction.
+// Returns the created task with ID, CreatedAt, and UpdatedAt populated.
+func (r *TaskRepository) Create(ctx context.Context, tx pgx.Tx, task *domain.Task) (*domain.Task, error) {
+	// Set defaults
+	if task.Visibility == "" {
+		task.Visibility = domain.TaskVisibilityPublic
+	}
+	if task.Priority == "" {
+		task.Priority = domain.TaskPriorityNormal
+	}
+	if task.BlockedBy == nil {
+		task.BlockedBy = []string{}
+	}
+
+	query, args, err := psql.
+		Insert("tasks").
+		Columns(
+			"workspace_id", "title", "description", "creator_id", "assignee_id",
+			"status", "visibility", "priority", "blocked_by", "status_deadline_at",
+		).
+		Values(
+			task.WorkspaceID,
+			task.Title,
+			task.Description,
+			task.CreatorID,
+			task.AssigneeID,
+			task.Status,
+			task.Visibility,
+			task.Priority,
+			task.BlockedBy,
+			task.StatusDeadlineAt,
+		).
+		Suffix("RETURNING id, created_at, updated_at").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build Create query for task: %w", err)
+	}
+
+	err = tx.QueryRow(ctx, query, args...).Scan(&task.ID, &task.CreatedAt, &task.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create task: %w", err)
+	}
+
+	return task, nil
+}

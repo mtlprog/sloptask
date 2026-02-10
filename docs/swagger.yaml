@@ -1,0 +1,558 @@
+basePath: /api/v1
+definitions:
+  dto.AgentStats:
+    properties:
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      avg_cycle_time_minutes:
+        type: number
+      avg_lead_time_minutes:
+        type: number
+      escalations_initiated:
+        type: integer
+      escalations_received:
+        type: integer
+      tasks_cancelled:
+        type: integer
+      tasks_completed:
+        type: integer
+      tasks_in_progress:
+        type: integer
+      tasks_stuck_count:
+        type: integer
+      tasks_taken_over_by_agent:
+        type: integer
+      tasks_taken_over_from_agent:
+        type: integer
+    type: object
+  dto.ClaimTaskRequest:
+    properties:
+      comment:
+        type: string
+    type: object
+  dto.CommentTaskRequest:
+    properties:
+      comment:
+        type: string
+    type: object
+  dto.CreateTaskRequest:
+    properties:
+      assignee_id:
+        type: string
+      blocked_by:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      priority:
+        type: string
+      title:
+        type: string
+      visibility:
+        type: string
+    type: object
+  dto.ErrorDetail:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/dto.ErrorDetail'
+    type: object
+  dto.EscalateTaskRequest:
+    properties:
+      comment:
+        type: string
+    type: object
+  dto.StatsResponse:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/dto.AgentStats'
+        type: array
+      period:
+        type: string
+      period_end:
+        type: string
+      period_start:
+        type: string
+      workspace:
+        $ref: '#/definitions/dto.WorkspaceStats'
+    type: object
+  dto.TakeoverTaskRequest:
+    properties:
+      comment:
+        type: string
+    type: object
+  dto.TaskDetail:
+    properties:
+      assignee_id:
+        type: string
+      blocked_by:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      creator_id:
+        type: string
+      description:
+        type: string
+      has_unresolved_blockers:
+        type: boolean
+      id:
+        type: string
+      is_overdue:
+        type: boolean
+      priority:
+        type: string
+      status:
+        type: string
+      status_deadline_at:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      visibility:
+        type: string
+    type: object
+  dto.TaskDetailResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/dto.TaskEventInfo'
+        type: array
+      task:
+        $ref: '#/definitions/dto.TaskDetail'
+    type: object
+  dto.TaskEventInfo:
+    properties:
+      actor_id:
+        type: string
+      actor_name:
+        type: string
+      comment:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      new_status:
+        type: string
+      old_status:
+        type: string
+      type:
+        type: string
+    type: object
+  dto.TaskEventResponse:
+    properties:
+      actor_id:
+        type: string
+      comment:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      new_status:
+        type: string
+      old_status:
+        type: string
+      task_id:
+        type: string
+      type:
+        type: string
+    type: object
+  dto.TaskListResponse:
+    properties:
+      assignee_id:
+        type: string
+      blocked_by:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      creator_id:
+        type: string
+      has_unresolved_blockers:
+        type: boolean
+      id:
+        type: string
+      is_overdue:
+        type: boolean
+      priority:
+        type: string
+      status:
+        type: string
+      status_deadline_at:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      visibility:
+        type: string
+    type: object
+  dto.TasksListResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      tasks:
+        items:
+          $ref: '#/definitions/dto.TaskListResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  dto.TransitionStatusRequest:
+    properties:
+      comment:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.WorkspaceStats:
+    properties:
+      avg_cycle_time_minutes:
+        type: number
+      avg_lead_time_minutes:
+        type: number
+      completion_rate_percent:
+        type: number
+      overdue_count:
+        type: integer
+      stuck_count:
+        type: integer
+      tasks_by_status:
+        additionalProperties:
+          type: integer
+        type: object
+      total_tasks_created:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: Task tracker for coordinating AI agents with deadlines and state machine.
+  title: SlopTask API
+  version: "1.0"
+paths:
+  /stats:
+    get:
+      description: Get workspace and agent statistics for a given period
+      parameters:
+      - description: 'Period: day, week (default), month, all'
+        in: query
+        name: period
+        type: string
+      - description: Filter by specific agent UUID
+        in: query
+        name: agent_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.StatsResponse'
+      security:
+      - BearerAuth: []
+      summary: Get statistics
+      tags:
+      - stats
+  /tasks:
+    get:
+      description: Get a list of tasks with optional filters
+      parameters:
+      - description: 'Comma-separated statuses: NEW,STUCK'
+        in: query
+        name: status
+        type: string
+      - description: 'Filter by assignee: ''me'' or agent UUID'
+        in: query
+        name: assignee
+        type: string
+      - description: Show only unassigned tasks
+        in: query
+        name: unassigned
+        type: boolean
+      - description: 'Filter by visibility: public or private'
+        in: query
+        name: visibility
+        type: string
+      - description: 'Comma-separated priorities: high,critical'
+        in: query
+        name: priority
+        type: string
+      - description: Show only overdue tasks
+        in: query
+        name: overdue
+        type: boolean
+      - description: Show only tasks with unresolved blockers
+        in: query
+        name: has_unresolved_blockers
+        type: boolean
+      - description: 'Sort fields: -priority,created_at'
+        in: query
+        name: sort
+        type: string
+      - description: Page size (1-200, default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TasksListResponse'
+      security:
+      - BearerAuth: []
+      summary: List tasks
+      tags:
+      - tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task. If assignee_id is provided, task automatically
+        transitions to IN_PROGRESS.
+      parameters:
+      - description: Task creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TaskDetail'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new task
+      tags:
+      - tasks
+  /tasks/{id}:
+    get:
+      description: Get full task details including description and event history
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get task details
+      tags:
+      - tasks
+  /tasks/{id}/claim:
+    post:
+      consumes:
+      - application/json
+      description: Agent claims an unassigned NEW task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Claim request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ClaimTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskEventResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Claim a task
+      tags:
+      - tasks
+  /tasks/{id}/comments:
+    post:
+      consumes:
+      - application/json
+      description: Add a comment without changing task status
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Comment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommentTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TaskEventResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add comment to task
+      tags:
+      - tasks
+  /tasks/{id}/escalate:
+    post:
+      consumes:
+      - application/json
+      description: Agent escalates another agent's IN_PROGRESS task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Escalate request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.EscalateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskEventResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Escalate a task
+      tags:
+      - tasks
+  /tasks/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Change task status with comment
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status transition request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransitionStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskEventResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Transition task status
+      tags:
+      - tasks
+  /tasks/{id}/takeover:
+    post:
+      consumes:
+      - application/json
+      description: Agent takes over an abandoned STUCK task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Takeover request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TakeoverTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskEventResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Takeover a STUCK task
+      tags:
+      - tasks
+securityDefinitions:
+  BearerAuth:
+    description: Enter "Bearer {token}" to authenticate
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
