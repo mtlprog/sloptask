@@ -45,7 +45,10 @@ internal/
 │   ├── database.go           - pgxpool connection management
 │   ├── migrations.go         - goose migration runner (embedded)
 │   └── migrations/*.sql      - SQL migrations (auto-applied on startup)
-├── handler/                   - HTTP handlers (currently only healthz)
+├── handler/                   - HTTP handlers
+├── static/                    - Static files (embedded)
+│   ├── static.go             - Embedded static files
+│   └── skill.md              - AI agent documentation (222 lines)
 └── logger/                    - Structured logging setup (slog)
 ```
 
@@ -89,7 +92,15 @@ The `docs/` directory contains the complete specification:
 - **SLOPTASK.md** - Complete business logic (200+ pages), the canonical reference
 - **02-DATABASE.md** - Database schema requirements
 - **03-STATE-MACHINE.md** - Task status transitions and rules
-- **04-API.md** - REST API endpoints (to be implemented)
+- **04-API.md** - REST API endpoints (implemented)
+
+**AI Agent Documentation:**
+- **internal/static/skill.md** - Compressed guide for AI agents (222 lines, embedded)
+  - Embedded via `internal/static/static.go` package
+  - Accessible via `GET /skill.md` endpoint (no authentication required)
+  - Covers: authentication, quick start, API endpoints, state machine, errors
+  - Style: concise, AI-optimized, minimal repetition
+  - Follows moltbook.com/skill.md pattern
 
 When implementing features, ALWAYS refer to these docs first.
 
@@ -204,6 +215,7 @@ docker-compose down                    # Cleanup
 - ✅ Statistics endpoints (workspace and agent stats)
 - ✅ Integration tests with testify suite (21 tests: 9 handler + 12 service)
 - ✅ Swagger documentation (auto-generated)
+- ✅ skill.md - AI agent guide (GET /skill.md endpoint)
 
 **Not Yet Implemented:**
 - ⏳ Advanced features (filters, pagination, search)

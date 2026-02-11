@@ -13,6 +13,7 @@ import (
 	"github.com/mtlprog/sloptask/internal/middleware"
 	"github.com/mtlprog/sloptask/internal/repository"
 	"github.com/mtlprog/sloptask/internal/service"
+	"github.com/mtlprog/sloptask/internal/static"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -57,6 +58,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Health check
 	mux.HandleFunc("GET /healthz", h.handleHealthz)
 
+	// Static files for AI agents
+	mux.HandleFunc("GET /skill.md", h.handleSkillMd)
+
 	// Swagger UI
 	mux.HandleFunc("GET /swagger/", httpSwagger.Handler())
 
@@ -83,6 +87,13 @@ func (h *Handler) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// handleSkillMd serves the embedded skill.md file for AI agents.
+func (h *Handler) handleSkillMd(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(static.SkillMd))
 }
 
 // Ping checks if the database is reachable (used for testing).
