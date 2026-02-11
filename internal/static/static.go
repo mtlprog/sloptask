@@ -6,3 +6,8 @@ import _ "embed"
 //
 //go:embed skill.md
 var SkillMd string
+
+// IndexHTML contains the embedded index.html landing page.
+//
+//go:embed index.html
+var IndexHTML string

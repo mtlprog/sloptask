@@ -55,6 +55,9 @@ func New(pool *pgxpool.Pool) *Handler {
 
 // RegisterRoutes registers all HTTP routes.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	// Landing page
+	mux.HandleFunc("GET /", h.handleIndex)
+
 	// Health check
 	mux.HandleFunc("GET /healthz", h.handleHealthz)
 
@@ -74,6 +77,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/tasks/{id}/takeover", h.authMiddleware.Authenticate(http.HandlerFunc(h.handleTakeoverTask)))
 	mux.Handle("POST /api/v1/tasks/{id}/comments", h.authMiddleware.Authenticate(http.HandlerFunc(h.handleCommentTask)))
 	mux.Handle("GET /api/v1/stats", h.authMiddleware.Authenticate(http.HandlerFunc(h.handleGetStats)))
+}
+
+// handleIndex serves the landing page.
+func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(static.IndexHTML)); err != nil {
+		slog.Error("failed to write index.html response", "error", err)
+	}
 }
 
 // handleHealthz returns 200 OK if the database is reachable.
