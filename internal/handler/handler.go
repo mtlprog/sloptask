@@ -93,7 +93,9 @@ func (h *Handler) handleHealthz(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleSkillMd(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(static.SkillMd))
+	if _, err := w.Write([]byte(static.SkillMd)); err != nil {
+		slog.Error("failed to write skill.md response", "error", err)
+	}
 }
 
 // Ping checks if the database is reachable (used for testing).
