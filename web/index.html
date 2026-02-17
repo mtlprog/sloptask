@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlopTask — Task Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3748;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 20px; font-weight: 700; color: #a78bfa; }
+    header .token-section { display: flex; gap: 8px; align-items: center; }
+    header input {
+      background: #2d3748;
+      border: 1px solid #4a5568;
+      color: #e2e8f0;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      width: 300px;
+    }
+    header input:focus { outline: none; border-color: #a78bfa; }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #7c3aed; color: white; }
+    .btn-secondary { background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568; }
+    .btn-success { background: #059669; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .controls select, .controls input[type="text"] {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .controls select:focus, .controls input:focus {
+      outline: none; border-color: #a78bfa;
+    }
+    .controls label { font-size: 13px; color: #94a3b8; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #94a3b8;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab.active { background: #1a1d27; color: #a78bfa; border-color: #2d3748; }
+    .tab:hover:not(.active) { color: #e2e8f0; }
+
+    .tasks-grid { display: flex; flex-direction: column; gap: 8px; }
+
+    .task-card {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .task-card:hover { border-color: #4a5568; }
+    .task-card.overdue { border-left: 3px solid #ef4444; }
+
+    .task-status {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-NEW { background: #1e3a5f; color: #60a5fa; }
+    .status-IN_PROGRESS { background: #1e4a2e; color: #34d399; }
+    .status-BLOCKED { background: #4a2e1e; color: #fb923c; }
+    .status-STUCK { background: #4a1e1e; color: #f87171; }
+    .status-DONE { background: #1e3a2e; color: #6ee7b7; }
+    .status-CANCELLED { background: #2d2d2d; color: #9ca3af; }
+
+    .priority-badge {
+      flex-shrink: 0;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid;
+    }
+    .priority-low { color: #6b7280; border-color: #374151; }
+    .priority-normal { color: #9ca3af; border-color: #4b5563; }
+    .priority-high { color: #fbbf24; border-color: #92400e; }
+    .priority-critical { color: #f87171; border-color: #7f1d1d; }
+
+    .task-title {
+      flex: 1;
+      font-size: 14px;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+    .task-title:hover { color: #a78bfa; }
+
+    .task-meta {
+      font-size: 12px;
+      color: #64748b;
+      flex-shrink: 0;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .overdue-badge {
+      font-size: 11px;
+      color: #ef4444;
+      font-weight: 500;
+    }
+
+    .task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 640px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 16px; color: #e2e8f0; }
+    .modal h3 { font-size: 14px; color: #94a3b8; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .modal textarea, .modal input, .modal select {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .modal textarea { min-height: 80px; }
+    .modal textarea:focus, .modal input:focus, .modal select:focus { outline: none; border-color: #a78bfa; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+
+    .event-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #1e2433;
+      font-size: 13px;
+    }
+    .event-item:last-child { border-bottom: none; }
+    .event-type {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #7c3aed;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .event-comment { color: #94a3b8; margin-top: 4px; }
+    .event-meta { font-size: 11px; color: #4b5563; margin-top: 4px; }
+
+    .task-description {
+      background: #0f1117;
+      border: 1px solid #1e2433;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 13px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #1a1d27;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-value { font-size: 28px; font-weight: 700; color: #a78bfa; }
+    .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+    .empty { text-align: center; padding: 60px; color: #4b5563; font-size: 15px; }
+    .alert {
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .alert-error { background: #3f1010; color: #f87171; border: 1px solid #7f1d1d; }
+    .alert-success { background: #0f3320; color: #34d399; border: 1px solid #065f46; }
+
+    .api-url-section {
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .api-url-section label { font-size: 12px; color: #64748b; white-space: nowrap; }
+    .api-url-section input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .api-url-section input:focus { outline: none; color: #e2e8f0; }
+
+    .loading { text-align: center; padding: 40px; color: #64748b; }
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid #2d3748;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ SlopTask</h1>
+  <div class="token-section">
+    <input type="password" id="tokenInput" placeholder="Bearer token..." />
+    <button class="btn btn-primary" onclick="connect()">Connect</button>
+    <button class="btn btn-secondary" onclick="showCreateModal()">+ New Task</button>
+  </div>
+</header>
+
+<main>
+  <div class="api-url-section">
+    <label>API URL:</label>
+    <input type="text" id="apiUrl" value="http://localhost:8080/api/v1" />
+    <button class="btn btn-secondary btn-sm" onclick="connect()">Update</button>
+  </div>
+
+  <div id="alert"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('mine')">My Tasks</div>
+    <div class="tab" onclick="switchTab('free')">Free (NEW)</div>
+    <div class="tab" onclick="switchTab('stuck')">Stuck</div>
+    <div class="tab" onclick="switchTab('all')">All</div>
+    <div class="tab" onclick="switchTab('stats')">Stats</div>
+  </div>
+
+  <div class="controls" id="filterControls">
+    <label>Status:
+      <select id="filterStatus" onchange="loadTasks()">
+        <option value="">All</option>
+        <option value="NEW">New</option>
+        <option value="IN_PROGRESS">In Progress</option>
+        <option value="BLOCKED">Blocked</option>
+        <option value="STUCK">Stuck</option>
+        <option value="DONE">Done</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+    </label>
+    <label>Priority:
+      <select id="filterPriority" onchange="loadTasks()">
+        <option value="">All</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="normal">Normal</option>
+        <option value="low">Low</option>
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" id="filterOverdue" onchange="loadTasks()"> Overdue only
+    </label>
+    <button class="btn btn-secondary btn-sm" onclick="loadTasks()">↻ Refresh</button>
+  </div>
+
+  <div id="tasksContainer"></div>
+  <div id="statsContainer" style="display:none;"></div>
+</main>
+
+<!-- Task Detail Modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <h2 id="detailTitle">Task Details</h2>
+    <div id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Claim / Action Modal -->
+<div class="modal-overlay" id="actionModal">
+  <div class="modal">
+    <h2 id="actionTitle">Action</h2>
+    <div class="form-row">
+      <label>Comment (required)</label>
+      <textarea id="actionComment" placeholder="Enter your comment..."></textarea>
+    </div>
+    <div id="actionStatusRow" style="display:none;" class="form-row">
+      <label>New Status</label>
+      <select id="actionStatus"></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('actionModal')">Cancel</button>
+      <button class="btn btn-primary" id="actionSubmitBtn" onclick="submitAction()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Task Modal -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <h2>New Task</h2>
+    <div class="form-row">
+      <label>Title (5–200 chars)</label>
+      <input type="text" id="createTitle" placeholder="Task title..." />
+    </div>
+    <div class="form-row">
+      <label>Description (markdown)</label>
+      <textarea id="createDesc" style="min-height:120px;" placeholder="## What to do&#10;...&#10;&#10;## Acceptance criteria&#10;- [ ] Done"></textarea>
+    </div>
+    <div class="form-row">
+      <label>Priority</label>
+      <select id="createPriority">
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Visibility</label>
+      <select id="createVisibility">
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCreate()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let token = localStorage.getItem('sloptask_token') || '';
+  let apiUrl = localStorage.getItem('sloptask_api') || 'http://localhost:8080/api/v1';
+  let currentTab = 'mine';
+  let pendingAction = null;
+
+  document.getElementById('tokenInput').value = token;
+  document.getElementById('apiUrl').value = apiUrl;
+
+  function getHeaders() {
+    return {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async function apiFetch(path, opts = {}) {
+    const res = await fetch(apiUrl + path, {
+      headers: getHeaders(),
+      ...opts
+    });
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { error: { message: text } }; }
+    if (!res.ok) {
+      const msg = json?.error?.message || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return json;
+  }
+
+  function showAlert(msg, type = 'error') {
+    const el = document.getElementById('alert');
+    el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    setTimeout(() => el.innerHTML = '', 4000);
+  }
+
+  function connect() {
+    token = document.getElementById('tokenInput').value.trim();
+    apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+    localStorage.setItem('sloptask_token', token);
+    localStorage.setItem('sloptask_api', apiUrl);
+    loadTasks();
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['mine','free','stuck','all','stats'][i] === tab);
+    });
+
+    const filterControls = document.getElementById('filterControls');
+    const tasksContainer = document.getElementById('tasksContainer');
+    const statsContainer = document.getElementById('statsContainer');
+
+    if (tab === 'stats') {
+      filterControls.style.display = 'none';
+      tasksContainer.style.display = 'none';
+      statsContainer.style.display = 'block';
+      loadStats();
+    } else {
+      filterControls.style.display = 'flex';
+      tasksContainer.style.display = 'block';
+      statsContainer.style.display = 'none';
+      loadTasks();
+    }
+  }
+
+  async function loadTasks() {
+    const container = document.getElementById('tasksContainer');
+    container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading...</div>';
+
+    let params = new URLSearchParams();
+
+    if (currentTab === 'mine') {
+      params.set('assignee', 'me');
+    } else if (currentTab === 'free') {
+      params.set('status', 'NEW');
+      params.set('unassigned', 'true');
+    } else if (currentTab === 'stuck') {
+      params.set('status', 'STUCK');
+    }
+
+    const statusFilter = document.getElementById('filterStatus').value;
+    const priorityFilter = document.getElementById('filterPriority').value;
+    const overdueFilter = document.getElementById('filterOverdue').checked;
+
+    if (statusFilter && currentTab === 'all') params.set('status', statusFilter);
+    if (priorityFilter) params.set('priority', priorityFilter);
+    if (overdueFilter) params.set('overdue', 'true');
+
+    params.set('limit', '100');
+
+    try {
+      const data = await apiFetch('/tasks?' + params.toString());
+      renderTasks(data.tasks || [], data.total || 0);
+    } catch (e) {
+      container.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
+    }
+  }
+
+  function renderTasks(tasks, total) {
+    const container = document.getElementById('tasksContainer');
+    if (!tasks.length) {
+      container.innerHTML = '<div class="empty">No tasks found</div>';
+      return;
+    }
+
+    const html = tasks.map(t => {
+      const overdueClass = t.is_overdue ? ' overdue' : '';
+      const deadline = t.status_deadline_at
+        ? `⏱ ${new Date(t.status_deadline_at).toLocaleString('ru', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}`
+        : '';
+      const overdueBadge = t.is_overdue ? '<span class="overdue-badge">OVERDUE</span>' : '';
+
+      let actions = '';
+      if (t.status === 'NEW' && !t.assignee_id) {
+        actions += `<button class="btn btn-success btn-sm" onclick="claimTask('${t.id}')">Claim</button>`;
+      }
+      if (t.status === 'IN_PROGRESS') {
+        actions += `<button class="btn btn-primary btn-sm" onclick="changeStatus('${t.id}', 'DONE')">Done</button>`;
+        actions += `<button class="btn btn-secondary btn-sm" onclick="escalateTask('${t.id}')">Escalate</button>`;
+      }
+      if (t.status === 'STUCK') {
+        actions += `<button class="btn btn-primary btn-sm" onclick="takeoverTask('${t.id}')">Takeover</button>`;
+      }
+      actions += `<button class="btn btn-secondary btn-sm" onclick="showDetail('${t.id}')">Detail</button>`;
+
+      return `
+        <div class="task-card${overdueClass}">
+          <span class="task-status status-${t.status}">${t.status.replace('_',' ')}</span>
+          <span class="priority-badge priority-${t.priority}">${t.priority}</span>
+          <span class="task-title" onclick="showDetail('${t.id}')">${escHtml(t.title)}</span>
+          <div class="task-meta">
+            ${overdueBadge}
+            ${deadline}
+          </div>
+          <div class="task-actions">${actions}</div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="font-size:13px;color:#4b5563;margin-bottom:12px;">Total: ${total}</div>
+      <div class="tasks-grid">${html}</div>`;
+  }
+
+  async function showDetail(id) {
+    document.getElementById('detailTitle').textContent = 'Loading...';
+    document.getElementById('detailBody').innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+    document.getElementById('detailModal').classList.add('open');
+
+    try {
+      const data = await apiFetch('/tasks/' + id);
+      const t = data.task;
+      document.getElementById('detailTitle').textContent = t.title;
+
+      const events = (data.events || []).map(e => `
+        <div class="event-item">
+          <span class="event-type">${e.type.replace(/_/g,' ')}</span>
+          ${e.old_status ? ` <span style="color:#4b5563;font-size:12px;">${e.old_status} → ${e.new_status}</span>` : ''}
+          ${e.comment ? `<div class="event-comment">${escHtml(e.comment)}</div>` : ''}
+          <div class="event-meta">${e.actor_name || 'system'} · ${new Date(e.created_at).toLocaleString('ru')}</div>
+        </div>`).join('') || '<div style="color:#4b5563;font-size:13px;">No events</div>';
+
+      document.getElementById('detailBody').innerHTML = `
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <span class="task-status status-${t.status}">${t.status.replace('_',' ')}</span>
+          <span class="priority-badge priority-${t.priority}">${t.priority}</span>
+          ${t.is_overdue ? '<span class="overdue-badge">OVERDUE</span>' : ''}
+        </div>
+        <h3>Description</h3>
+        <div class="task-description">${escHtml(t.description || '—')}</div>
+        <h3>Details</h3>
+        <div style="font-size:13px;color:#64748b;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div>Visibility: ${t.visibility}</div>
+          <div>Assignee: ${t.assignee_id ? t.assignee_id.substring(0,8)+'...' : 'None'}</div>
+          <div>Created: ${new Date(t.created_at).toLocaleString('ru')}</div>
+          <div>Updated: ${new Date(t.updated_at).toLocaleString('ru')}</div>
+          ${t.status_deadline_at ? `<div>Deadline: ${new Date(t.status_deadline_at).toLocaleString('ru')}</div>` : ''}
+          ${t.blocked_by?.length ? `<div>Blocked by: ${t.blocked_by.length} tasks</div>` : ''}
+        </div>
+        <h3>History (${data.events?.length || 0} events)</h3>
+        ${events}`;
+    } catch (e) {
+      document.getElementById('detailBody').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  function claimTask(id) {
+    pendingAction = { type: 'claim', id };
+    document.getElementById('actionTitle').textContent = 'Claim Task';
+    document.getElementById('actionComment').value = '';
+    document.getElementById('actionStatusRow').style.display = 'none';
+    document.getElementById('actionModal').classList.add('open');
+  }
+
+  function changeStatus(id, suggestedStatus) {
+    pendingAction = { type: 'status', id };
+    document.getElementById('actionTitle').textContent = 'Change Status';
+    document.getElementById('actionComment').value = '';
+    const statusSel = document.getElementById('actionStatus');
+    statusSel.innerHTML = ['NEW','IN_PROGRESS','BLOCKED','DONE','CANCELLED']
+      .map(s => `<option value="${s}" ${s===suggestedStatus?'selected':''}>${s.replace('_',' ')}</option>`).join('');
+    document.getElementById('actionStatusRow').style.display = 'block';
+    document.getElementById('actionModal').classList.add('open');
+  }
+
+  function escalateTask(id) {
+    pendingAction = { type: 'escalate', id };
+    document.getElementById('actionTitle').textContent = 'Escalate Task';
+    document.getElementById('actionComment').value = '';
+    document.getElementById('actionStatusRow').style.display = 'none';
+    document.getElementById('actionModal').classList.add('open');
+  }
+
+  function takeoverTask(id) {
+    pendingAction = { type: 'takeover', id };
+    document.getElementById('actionTitle').textContent = 'Take Over Task';
+    document.getElementById('actionComment').value = '';
+    document.getElementById('actionStatusRow').style.display = 'none';
+    document.getElementById('actionModal').classList.add('open');
+  }
+
+  async function submitAction() {
+    const comment = document.getElementById('actionComment').value.trim();
+    if (!comment) { showAlert('Comment is required'); return; }
+    const btn = document.getElementById('actionSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+      const { type, id } = pendingAction;
+      let path, body;
+
+      if (type === 'claim') {
+        path = `/tasks/${id}/claim`;
+        body = { comment };
+      } else if (type === 'status') {
+        const status = document.getElementById('actionStatus').value;
+        path = `/tasks/${id}/status`;
+        body = { status, comment };
+      } else if (type === 'escalate') {
+        path = `/tasks/${id}/escalate`;
+        body = { comment };
+      } else if (type === 'takeover') {
+        path = `/tasks/${id}/takeover`;
+        body = { comment };
+      }
+
+      await apiFetch(path, { method: type === 'status' ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+      closeModal('actionModal');
+      showAlert('Done!', 'success');
+      loadTasks();
+    } catch (e) {
+      showAlert(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  }
+
+  function showCreateModal() {
+    document.getElementById('createTitle').value = '';
+    document.getElementById('createDesc').value = '';
+    document.getElementById('createModal').classList.add('open');
+  }
+
+  async function submitCreate() {
+    const title = document.getElementById('createTitle').value.trim();
+    const description = document.getElementById('createDesc').value.trim();
+    const priority = document.getElementById('createPriority').value;
+    const visibility = document.getElementById('createVisibility').value;
+
+    if (!title || title.length < 5) { showAlert('Title must be at least 5 chars'); return; }
+    if (!description) { showAlert('Description is required'); return; }
+
+    try {
+      await apiFetch('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ title, description, priority, visibility })
+      });
+      closeModal('createModal');
+      showAlert('Task created!', 'success');
+      loadTasks();
+    } catch (e) {
+      showAlert(e.message);
+    }
+  }
+
+  async function loadStats() {
+    const container = document.getElementById('statsContainer');
+    container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading stats...</div>';
+    try {
+      const data = await apiFetch('/stats?period=week');
+      const ws = data.workspace || {};
+      const byStatus = ws.tasks_by_status || {};
+
+      const statusCards = Object.entries(byStatus).map(([s,n]) =>
+        `<div class="stat-card"><div class="stat-value">${n}</div><div class="stat-label">${s.replace('_',' ')}</div></div>`
+      ).join('');
+
+      const agentRows = (data.agents || []).map(a => `
+        <tr style="border-bottom:1px solid #1e2433;">
+          <td style="padding:8px 12px;color:#e2e8f0;">${escHtml(a.agent_name)}</td>
+          <td style="padding:8px;text-align:center;color:#34d399;">${a.tasks_completed}</td>
+          <td style="padding:8px;text-align:center;color:#fb923c;">${a.tasks_in_progress}</td>
+          <td style="padding:8px;text-align:center;color:#f87171;">${a.tasks_stuck_count}</td>
+          <td style="padding:8px;text-align:center;color:#94a3b8;">${a.avg_cycle_time_minutes ?? '—'}</td>
+        </tr>`).join('');
+
+      container.innerHTML = `
+        <div style="margin-bottom:20px;">
+          <h3 style="color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">This Week — Tasks by Status</h3>
+          <div class="stats-grid">${statusCards}</div>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value">${ws.total_tasks_created||0}</div><div class="stat-label">Created</div></div>
+            <div class="stat-card"><div class="stat-value">${(ws.completion_rate_percent||0).toFixed(0)}%</div><div class="stat-label">Completion Rate</div></div>
+            <div class="stat-card"><div class="stat-value">${ws.overdue_count||0}</div><div class="stat-label">Overdue</div></div>
+            <div class="stat-card"><div class="stat-value">${ws.avg_lead_time_minutes||0}</div><div class="stat-label">Avg Lead Time (min)</div></div>
+          </div>
+        </div>
+        ${agentRows ? `
+        <h3 style="color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Agents</h3>
+        <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:8px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="color:#64748b;font-size:11px;border-bottom:1px solid #2d3748;">
+              <th style="padding:8px 12px;text-align:left;">Agent</th>
+              <th style="padding:8px;text-align:center;">Done</th>
+              <th style="padding:8px;text-align:center;">In Progress</th>
+              <th style="padding:8px;text-align:center;">Stuck</th>
+              <th style="padding:8px;text-align:center;">Avg Cycle (min)</th>
+            </tr></thead>
+            <tbody>${agentRows}</tbody>
+          </table>
+        </div>` : ''}`;
+    } catch (e) {
+      container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    pendingAction = null;
+  }
+
+  // Close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+  });
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Auto-load on startup if token exists
+  if (token) loadTasks();
+</script>
+</body>
+</html>
