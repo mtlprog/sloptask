@@ -93,6 +93,8 @@ definitions:
     type: object
   dto.TaskDetail:
     properties:
+      artefact:
+        type: string
       assignee_id:
         type: string
       blocked_by:
@@ -173,6 +175,8 @@ definitions:
     type: object
   dto.TaskListResponse:
     properties:
+      artefact:
+        type: string
       assignee_id:
         type: string
       blocked_by:
@@ -217,6 +221,8 @@ definitions:
     type: object
   dto.TransitionStatusRequest:
     properties:
+      artefact:
+        type: string
       comment:
         type: string
       status:

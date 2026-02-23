@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,6 +55,9 @@ func (s *TaskService) getActiveAgent(ctx context.Context, agentID string) (*doma
 
 // validateArtefactURL checks that artefact is a valid http/https URL with a non-empty host.
 func validateArtefactURL(artefact string) error {
+	if strings.ContainsAny(artefact, " \t\n\r") {
+		return domain.ErrInvalidArtefactURL
+	}
 	u, err := url.Parse(artefact)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return domain.ErrInvalidArtefactURL
@@ -378,7 +382,7 @@ func (s *TaskService) TransitionStatus(
 	}
 
 	var artefactPtr *string
-	if artefact != "" {
+	if newStatus == domain.TaskStatusDone && artefact != "" {
 		artefactPtr = &artefact
 	}
 

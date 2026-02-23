@@ -25,10 +25,10 @@ var (
 	ErrWorkspaceNotFound = errors.New("workspace not found")
 
 	// Validation errors
-	ErrInvalidStatus     = errors.New("invalid task status")
-	ErrInvalidVisibility = errors.New("invalid task visibility")
-	ErrInvalidPriority   = errors.New("invalid task priority")
-	ErrEmptyComment      = errors.New("comment is required")
-	ErrArtefactRequired    = errors.New("artefact URL is required to close a task")
-	ErrInvalidArtefactURL  = errors.New("artefact must be a valid http:// or https:// URL")
+	ErrInvalidStatus      = errors.New("invalid task status")
+	ErrInvalidVisibility  = errors.New("invalid task visibility")
+	ErrInvalidPriority    = errors.New("invalid task priority")
+	ErrEmptyComment       = errors.New("comment is required")
+	ErrArtefactRequired   = errors.New("artefact URL is required to close a task")
+	ErrInvalidArtefactURL = errors.New("artefact must be a valid http:// or https:// URL")
 )

@@ -15,7 +15,6 @@ import (
 	"github.com/mtlprog/sloptask/internal/service"
 )
 
-
 // handleCreateTask creates a new task.
 // @Summary Create a new task
 // @Description Creates a new task. If assignee_id is provided, task automatically transitions to IN_PROGRESS.
