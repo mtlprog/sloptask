@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,6 +50,15 @@ func (s *TaskService) getActiveAgent(ctx context.Context, agentID string) (*doma
 		return nil, domain.ErrAgentInactive
 	}
 	return agent, nil
+}
+
+// validateArtefactURL checks that artefact is a valid http/https URL with a non-empty host.
+func validateArtefactURL(artefact string) error {
+	u, err := url.Parse(artefact)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return domain.ErrInvalidArtefactURL
+	}
+	return nil
 }
 
 // createEventAndCommit persists a task event within the transaction, then commits.
@@ -110,7 +120,7 @@ func (s *TaskService) ClaimTask(
 
 	err = s.taskRepo.UpdateStatus(ctx, tx, taskID,
 		domain.TaskStatusNew, domain.TaskStatusInProgress,
-		&agentID, newDeadline,
+		&agentID, newDeadline, nil,
 	)
 	if err != nil {
 		return nil, err
@@ -184,7 +194,7 @@ func (s *TaskService) EscalateTask(
 
 	err = s.taskRepo.UpdateStatus(ctx, tx, taskID,
 		domain.TaskStatusInProgress, domain.TaskStatusBlocked,
-		task.AssigneeID, newDeadline,
+		task.AssigneeID, newDeadline, nil,
 	)
 	if err != nil {
 		return nil, err
@@ -262,7 +272,7 @@ func (s *TaskService) TakeoverTask(
 
 	err = s.taskRepo.UpdateStatus(ctx, tx, taskID,
 		domain.TaskStatusStuck, domain.TaskStatusInProgress,
-		&agentID, newDeadline,
+		&agentID, newDeadline, nil,
 	)
 	if err != nil {
 		return nil, err
@@ -299,6 +309,7 @@ func (s *TaskService) TransitionStatus(
 	agentID string,
 	newStatus domain.TaskStatus,
 	comment string,
+	artefact string,
 ) (*domain.TaskEvent, error) {
 	if comment == "" {
 		return nil, domain.ErrEmptyComment
@@ -306,6 +317,15 @@ func (s *TaskService) TransitionStatus(
 
 	if !newStatus.IsValid() {
 		return nil, domain.ErrInvalidStatus
+	}
+
+	if newStatus == domain.TaskStatusDone {
+		if artefact == "" {
+			return nil, domain.ErrArtefactRequired
+		}
+		if err := validateArtefactURL(artefact); err != nil {
+			return nil, err
+		}
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -357,9 +377,14 @@ func (s *TaskService) TransitionStatus(
 		newAssignee = nil
 	}
 
+	var artefactPtr *string
+	if artefact != "" {
+		artefactPtr = &artefact
+	}
+
 	err = s.taskRepo.UpdateStatus(ctx, tx, taskID,
 		oldStatus, newStatus,
-		newAssignee, newDeadline,
+		newAssignee, newDeadline, artefactPtr,
 	)
 	if err != nil {
 		return nil, err
@@ -448,7 +473,7 @@ func (s *TaskService) processExpiredTask(ctx context.Context, task *domain.Task)
 
 	err = s.taskRepo.UpdateStatus(ctx, tx, task.ID,
 		oldStatus, domain.TaskStatusStuck,
-		task.AssigneeID, nil,
+		task.AssigneeID, nil, nil,
 	)
 	if err != nil {
 		return fmt.Errorf("update status: %w", err)

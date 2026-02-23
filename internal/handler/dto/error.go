@@ -76,6 +76,10 @@ func MapDomainError(err error) (status int, code string, message string) {
 		return http.StatusUnprocessableEntity, "VALIDATION_ERROR", message
 	case errors.Is(err, domain.ErrEmptyComment):
 		return http.StatusUnprocessableEntity, "VALIDATION_ERROR", message
+	case errors.Is(err, domain.ErrArtefactRequired):
+		return http.StatusUnprocessableEntity, "VALIDATION_ERROR", message
+	case errors.Is(err, domain.ErrInvalidArtefactURL):
+		return http.StatusUnprocessableEntity, "VALIDATION_ERROR", message
 
 	// Default: internal server error
 	default:

@@ -15,6 +15,7 @@ import (
 	"github.com/mtlprog/sloptask/internal/service"
 )
 
+
 // handleCreateTask creates a new task.
 // @Summary Create a new task
 // @Description Creates a new task. If assignee_id is provided, task automatically transitions to IN_PROGRESS.
@@ -251,7 +252,7 @@ func (h *Handler) handleTransitionStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	event, err := h.taskService.TransitionStatus(ctx, taskID, agent.ID, newStatus, req.Comment)
+	event, err := h.taskService.TransitionStatus(ctx, taskID, agent.ID, newStatus, req.Comment, req.Artefact)
 	if err != nil {
 		status, code, message := dto.MapDomainError(err)
 		respondError(w, status, code, message)
