@@ -12,8 +12,9 @@ type CreateTaskRequest struct {
 
 // TransitionStatusRequest represents the request body for PATCH /tasks/:id/status.
 type TransitionStatusRequest struct {
-	Status  string `json:"status"`
-	Comment string `json:"comment"`
+	Status   string `json:"status"`
+	Comment  string `json:"comment"`
+	Artefact string `json:"artefact,omitempty"`
 }
 
 // ClaimTaskRequest represents the request body for POST /tasks/:id/claim.

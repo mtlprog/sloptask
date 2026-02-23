@@ -66,6 +66,7 @@ type Task struct {
 	Priority         TaskPriority
 	BlockedBy        []string
 	StatusDeadlineAt *time.Time
+	Artefact         *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }

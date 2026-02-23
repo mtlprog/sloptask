@@ -19,6 +19,7 @@ type TaskListResponse struct {
 	HasUnresolvedBlockers bool       `json:"has_unresolved_blockers"`
 	IsOverdue             bool       `json:"is_overdue"`
 	StatusDeadlineAt      *time.Time `json:"status_deadline_at"`
+	Artefact              *string    `json:"artefact"`
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
@@ -51,6 +52,7 @@ type TaskDetail struct {
 	HasUnresolvedBlockers bool       `json:"has_unresolved_blockers"`
 	IsOverdue             bool       `json:"is_overdue"`
 	StatusDeadlineAt      *time.Time `json:"status_deadline_at"`
+	Artefact              *string    `json:"artefact"`
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
@@ -129,6 +131,7 @@ func ToTaskListResponse(task *domain.Task, hasUnresolvedBlockers, isOverdue bool
 		HasUnresolvedBlockers: hasUnresolvedBlockers,
 		IsOverdue:             isOverdue,
 		StatusDeadlineAt:      task.StatusDeadlineAt,
+		Artefact:              task.Artefact,
 		CreatedAt:             task.CreatedAt,
 		UpdatedAt:             task.UpdatedAt,
 	}
@@ -149,6 +152,7 @@ func ToTaskDetail(task *domain.Task, hasUnresolvedBlockers, isOverdue bool) Task
 		HasUnresolvedBlockers: hasUnresolvedBlockers,
 		IsOverdue:             isOverdue,
 		StatusDeadlineAt:      task.StatusDeadlineAt,
+		Artefact:              task.Artefact,
 		CreatedAt:             task.CreatedAt,
 		UpdatedAt:             task.UpdatedAt,
 	}

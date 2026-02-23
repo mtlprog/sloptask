@@ -260,8 +260,8 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_NewToDone_ShouldFail() {
 	// Create NEW task
 	taskID := s.createTask(ctx, domain.TaskStatusNew, nil, nil)
 
-	// Try to transition directly to DONE - should fail
-	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Invalid transition")
+	// Try to transition directly to DONE - should fail (invalid state machine transition)
+	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Invalid transition", "https://github.com/example")
 	s.Error(err)
 	s.ErrorIs(err, domain.ErrInvalidTransition)
 }
@@ -273,17 +273,42 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_InProgressToDone_Success() {
 	// Create IN_PROGRESS task owned by agent1
 	taskID := s.createTask(ctx, domain.TaskStatusInProgress, &s.agent1ID, nil)
 
-	// Agent1 completes the task
-	event, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Task completed")
+	// Agent1 completes the task with artefact
+	artefactURL := "https://github.com/example/result"
+	event, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Task completed", artefactURL)
 	s.Require().NoError(err)
 	s.NotNil(event)
 	s.Equal(domain.EventTypeStatusChanged, event.Type)
 
-	// Verify task status changed
+	// Verify task status changed and artefact stored
 	task, err := s.taskRepo.GetByID(ctx, taskID)
 	s.Require().NoError(err)
 	s.Equal(domain.TaskStatusDone, task.Status)
 	s.Nil(task.StatusDeadlineAt) // Terminal status has no deadline
+	s.Require().NotNil(task.Artefact)
+	s.Equal(artefactURL, *task.Artefact)
+}
+
+// TestTransitionStatus_InProgressToDone_MissingArtefact_ShouldFail tests artefact required.
+func (s *TaskServiceTestSuite) TestTransitionStatus_InProgressToDone_MissingArtefact_ShouldFail() {
+	ctx := context.Background()
+
+	taskID := s.createTask(ctx, domain.TaskStatusInProgress, &s.agent1ID, nil)
+
+	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Done", "")
+	s.Error(err)
+	s.ErrorIs(err, domain.ErrArtefactRequired)
+}
+
+// TestTransitionStatus_InProgressToDone_InvalidArtefactURL_ShouldFail tests URL validation.
+func (s *TaskServiceTestSuite) TestTransitionStatus_InProgressToDone_InvalidArtefactURL_ShouldFail() {
+	ctx := context.Background()
+
+	taskID := s.createTask(ctx, domain.TaskStatusInProgress, &s.agent1ID, nil)
+
+	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Done", "not-a-url")
+	s.Error(err)
+	s.ErrorIs(err, domain.ErrInvalidArtefactURL)
 }
 
 // TestProcessExpiredDeadlines tests deadline checker.
@@ -319,7 +344,7 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_StuckToInProgress_ByNonOwner
 
 	// Agent2 tries to resume agent1's task (should fail)
 	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent2ID,
-		domain.TaskStatusInProgress, "Trying to resume")
+		domain.TaskStatusInProgress, "Trying to resume", "")
 	s.Error(err)
 	s.ErrorIs(err, domain.ErrPermissionDenied)
 }
@@ -331,7 +356,7 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_StuckToInProgress_ByOwner_Su
 
 	// Agent1 resumes their own task (should succeed)
 	event, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID,
-		domain.TaskStatusInProgress, "Resuming work")
+		domain.TaskStatusInProgress, "Resuming work", "")
 	s.Require().NoError(err)
 	s.NotNil(event)
 }

@@ -16,7 +16,7 @@ import (
 var taskColumns = []string{
 	"id", "workspace_id", "title", "description", "creator_id", "assignee_id",
 	"status", "visibility", "priority", "blocked_by", "status_deadline_at",
-	"created_at", "updated_at",
+	"artefact", "created_at", "updated_at",
 }
 
 // TaskRepository handles database operations for tasks.
@@ -44,6 +44,7 @@ func scanTask(row pgx.Row) (*domain.Task, error) {
 		&task.Priority,
 		&task.BlockedBy,
 		&task.StatusDeadlineAt,
+		&task.Artefact,
 		&task.CreatedAt,
 		&task.UpdatedAt,
 	)
@@ -113,8 +114,9 @@ func (r *TaskRepository) UpdateStatus(
 	newStatus domain.TaskStatus,
 	assigneeID *string,
 	statusDeadlineAt *time.Time,
+	artefact *string,
 ) error {
-	query, args, err := psql.
+	update := psql.
 		Update("tasks").
 		Set("status", newStatus).
 		Set("assignee_id", assigneeID).
@@ -123,8 +125,13 @@ func (r *TaskRepository) UpdateStatus(
 		Where(sq.Eq{
 			"id":     taskID,
 			"status": oldStatus,
-		}).
-		ToSql()
+		})
+
+	if artefact != nil {
+		update = update.Set("artefact", artefact)
+	}
+
+	query, args, err := update.ToSql()
 	if err != nil {
 		return fmt.Errorf("build UpdateStatus query for task %s: %w", taskID, err)
 	}
@@ -207,6 +214,7 @@ func (r *TaskRepository) Create(ctx context.Context, tx pgx.Tx, task *domain.Tas
 		Columns(
 			"workspace_id", "title", "description", "creator_id", "assignee_id",
 			"status", "visibility", "priority", "blocked_by", "status_deadline_at",
+			"artefact",
 		).
 		Values(
 			task.WorkspaceID,
@@ -219,6 +227,7 @@ func (r *TaskRepository) Create(ctx context.Context, tx pgx.Tx, task *domain.Tas
 			task.Priority,
 			task.BlockedBy,
 			task.StatusDeadlineAt,
+			task.Artefact,
 		).
 		Suffix("RETURNING id, created_at, updated_at").
 		ToSql()
