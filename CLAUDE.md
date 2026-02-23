@@ -164,7 +164,13 @@ Environment variables (all optional except DATABASE_URL):
 
 - After `go get <package>`, always run `go mod tidy`
 - CI checks both `gofmt -s` AND `go mod tidy` - both must pass
+- Fix gofmt: `gofmt -s -w <file>` — check which files need it: `gofmt -s -l internal/`
 - Commit both go.mod and go.sum together
+
+### Swagger Docs
+
+- Regenerate after any DTO change: `swag init --dir cmd/sloptask,internal/handler --output docs`
+- Commit updated `docs/` files (docs.go, swagger.json, swagger.yaml) with the DTO change
 
 ## Testing
 
@@ -172,9 +178,17 @@ Integration tests use testify suite with real PostgreSQL:
 ```bash
 docker-compose up -d db        # Start database first
 go test ./internal/service -v  # Run service layer tests
+go test ./internal/handler -v  # Run handler layer tests
 ```
 
 Test pattern: `testify/suite` with `SetupTest`/`TearDown` for clean fixtures between tests
+
+Handler tests use `s.makeRequest(method, path, token, body)` helper — see `internal/handler/handler_test.go`
+
+### URL Validation Gotcha
+
+- Go's `url.Parse` is very permissive: accepts spaces in host, `ftp://`, etc.
+- Always add an explicit whitespace check before parsing: `strings.ContainsAny(u, " \t\n\r")`
 
 **Manual Testing:**
 ```bash
@@ -219,3 +233,8 @@ docker-compose down                    # Cleanup
 
 **Not Yet Implemented:**
 - ⏳ Advanced features (filters, pagination, search)
+
+## Git Workflow
+
+- This repo allows **rebase only** — merge commits and squash are disabled
+- Merge PRs with: `gh pr merge <n> --rebase`
