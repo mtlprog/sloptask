@@ -260,7 +260,7 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_NewToDone_ShouldFail() {
 	// Create NEW task
 	taskID := s.createTask(ctx, domain.TaskStatusNew, nil, nil)
 
-	// Try to transition directly to DONE - should fail (invalid state machine transition)
+	// Artefact validation passes (valid URL provided), but state machine rejects NEW → DONE.
 	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Invalid transition", "https://github.com/example")
 	s.Error(err)
 	s.ErrorIs(err, domain.ErrInvalidTransition)
@@ -309,6 +309,33 @@ func (s *TaskServiceTestSuite) TestTransitionStatus_InProgressToDone_InvalidArte
 	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Done", "not-a-url")
 	s.Error(err)
 	s.ErrorIs(err, domain.ErrInvalidArtefactURL)
+}
+
+// TestTransitionStatus_InProgressToDone_FtpArtefact_ShouldFail tests non-http scheme rejection.
+func (s *TaskServiceTestSuite) TestTransitionStatus_InProgressToDone_FtpArtefact_ShouldFail() {
+	ctx := context.Background()
+
+	taskID := s.createTask(ctx, domain.TaskStatusInProgress, &s.agent1ID, nil)
+
+	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusDone, "Done", "ftp://example.com/result")
+	s.Error(err)
+	s.ErrorIs(err, domain.ErrInvalidArtefactURL)
+}
+
+// TestTransitionStatus_NonDone_ArtefactIgnored verifies artefact is not stored on non-DONE transitions.
+func (s *TaskServiceTestSuite) TestTransitionStatus_NonDone_ArtefactIgnored() {
+	ctx := context.Background()
+
+	// STUCK → IN_PROGRESS by the owner is a valid non-DONE transition
+	taskID := s.createTask(ctx, domain.TaskStatusStuck, &s.agent1ID, nil)
+
+	_, err := s.taskService.TransitionStatus(ctx, taskID, s.agent1ID, domain.TaskStatusInProgress, "Resuming work", "https://example.com/result")
+	s.Require().NoError(err)
+
+	// Artefact must not be written for non-DONE transitions
+	task, err := s.taskRepo.GetByID(ctx, taskID)
+	s.Require().NoError(err)
+	s.Nil(task.Artefact)
 }
 
 // TestProcessExpiredDeadlines tests deadline checker.

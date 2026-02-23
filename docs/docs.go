@@ -636,6 +636,9 @@ const docTemplate = `{
         "dto.TaskDetail": {
             "type": "object",
             "properties": {
+                "artefact": {
+                    "type": "string"
+                },
                 "assignee_id": {
                     "type": "string"
                 },
@@ -758,6 +761,9 @@ const docTemplate = `{
         "dto.TaskListResponse": {
             "type": "object",
             "properties": {
+                "artefact": {
+                    "type": "string"
+                },
                 "assignee_id": {
                     "type": "string"
                 },
@@ -825,6 +831,9 @@ const docTemplate = `{
         "dto.TransitionStatusRequest": {
             "type": "object",
             "properties": {
+                "artefact": {
+                    "type": "string"
+                },
                 "comment": {
                     "type": "string"
                 },

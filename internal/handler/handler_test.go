@@ -324,6 +324,96 @@ func (s *HandlerTestSuite) TestListTasks_PrivateTaskVisibleToCreator() {
 	s.Equal("Private Task", respBody.Tasks[0].Title)
 }
 
+// Test: PATCH /tasks/:id/status - DONE without artefact returns 422
+func (s *HandlerTestSuite) TestTransitionStatus_DoneWithoutArtefact_Returns422() {
+	ctx := context.Background()
+
+	var taskID string
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO tasks (workspace_id, title, description, creator_id, assignee_id, status)
+		VALUES ($1, 'Test Task', 'Test', $2, $2, 'IN_PROGRESS')
+		RETURNING id
+	`, s.workspaceID, s.agent1ID).Scan(&taskID)
+	s.Require().NoError(err)
+
+	reqBody := dto.TransitionStatusRequest{
+		Status:  "DONE",
+		Comment: "Done",
+		// no artefact
+	}
+
+	w := s.makeRequest("PATCH", "/api/v1/tasks/"+taskID+"/status", s.agent1Token, reqBody)
+
+	s.Equal(http.StatusUnprocessableEntity, w.Code)
+
+	var errResp dto.ErrorResponse
+	err = json.NewDecoder(w.Body).Decode(&errResp)
+	s.Require().NoError(err)
+	s.Equal("VALIDATION_ERROR", errResp.Error.Code)
+}
+
+// Test: PATCH /tasks/:id/status - DONE with invalid artefact URL returns 422
+func (s *HandlerTestSuite) TestTransitionStatus_DoneWithInvalidArtefactURL_Returns422() {
+	ctx := context.Background()
+
+	var taskID string
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO tasks (workspace_id, title, description, creator_id, assignee_id, status)
+		VALUES ($1, 'Test Task', 'Test', $2, $2, 'IN_PROGRESS')
+		RETURNING id
+	`, s.workspaceID, s.agent1ID).Scan(&taskID)
+	s.Require().NoError(err)
+
+	reqBody := dto.TransitionStatusRequest{
+		Status:   "DONE",
+		Comment:  "Done",
+		Artefact: "not-a-url",
+	}
+
+	w := s.makeRequest("PATCH", "/api/v1/tasks/"+taskID+"/status", s.agent1Token, reqBody)
+
+	s.Equal(http.StatusUnprocessableEntity, w.Code)
+
+	var errResp dto.ErrorResponse
+	err = json.NewDecoder(w.Body).Decode(&errResp)
+	s.Require().NoError(err)
+	s.Equal("VALIDATION_ERROR", errResp.Error.Code)
+}
+
+// Test: PATCH /tasks/:id/status - DONE with valid artefact returns 200 and artefact in GET response
+func (s *HandlerTestSuite) TestTransitionStatus_DoneWithArtefact_Success() {
+	ctx := context.Background()
+
+	var taskID string
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO tasks (workspace_id, title, description, creator_id, assignee_id, status)
+		VALUES ($1, 'Test Task', 'Test', $2, $2, 'IN_PROGRESS')
+		RETURNING id
+	`, s.workspaceID, s.agent1ID).Scan(&taskID)
+	s.Require().NoError(err)
+
+	artefactURL := "https://github.com/example/pr/42"
+	reqBody := dto.TransitionStatusRequest{
+		Status:   "DONE",
+		Comment:  "Completed",
+		Artefact: artefactURL,
+	}
+
+	w := s.makeRequest("PATCH", "/api/v1/tasks/"+taskID+"/status", s.agent1Token, reqBody)
+
+	s.Equal(http.StatusOK, w.Code)
+
+	// Verify artefact appears in GET /tasks/:id response
+	w = s.makeRequest("GET", "/api/v1/tasks/"+taskID, s.agent1Token, nil)
+	s.Equal(http.StatusOK, w.Code)
+
+	var respBody dto.TaskDetailResponse
+	err = json.NewDecoder(w.Body).Decode(&respBody)
+	s.Require().NoError(err)
+	s.Require().NotNil(respBody.Task.Artefact)
+	s.Equal(artefactURL, *respBody.Task.Artefact)
+}
+
 // Test 9: Agent can see private task they're assigned to
 func (s *HandlerTestSuite) TestListTasks_PrivateTaskVisibleToAssignee() {
 	ctx := context.Background()
